@@ -1,0 +1,42 @@
+<?php
+
+// Get the walk id and set up the result array
+$walk_id = $_GET["id"];
+$result  = [];
+
+debug("delete walk - logged on '". $_SESSION['logged_on']."' admin user '".$_SESSION['admin_user']."' user '".$_SESSION['userid']."' id '".$_GET["id"]."'");
+
+// Rules:
+//  If the logged in user is an admin user, just delete the walk
+//  If someone is logged in, try to delete the walk if it belongs to them: if not, flag a security breach
+//  If noone is logged on, flag a security breach
+if ($_SESSION['logged_on'] == "TRUE") {
+  if ($_SESSION['admin_user'] == "TRUE") {
+    query("UPDATE cwc_walk
+           SET approved = 'deleted'
+           WHERE id = ?","i",$walk_id);
+    $result["result"] = getAffectedRows() == 1 ? "success" : "failure";
+  } else {
+    debug("UPDATE cwc_walk
+           SET approved = 'deleted'
+           WHERE id          = ?
+           AND LOWER(w.user) = LOWER(?))");
+    query("UPDATE cwc_walk
+           SET approved = 'deleted'
+           WHERE id          = ?
+           AND LOWER(w.user) = LOWER(?))","is",$walk_id,$_SESSION['userid']);
+    if (getAffectedRows() != 1) {
+      $result["result"] = "success";
+    } else {
+      reportSecurityProblem("Unauthorised attempt to delete walk - user '".$_SESSION['userid']."' walk id '".$_GET["id"]."'");
+    }
+  }
+} else {
+  reportSecurityProblem("Unauthorised attempt to delete walk id '".$_GET["id"]."' by unknown user");
+}
+
+// Return the results
+header('Content-type: application/json');
+echo json_encode($result);
+exit();
+?>
